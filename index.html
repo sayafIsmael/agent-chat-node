@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+    <script>
+      var socket = io("http://localhost:3000");
+      socket.on("hello", (data) => {});
+      var baseurl = `http://localhost:5000`;
+
+      $(document).ready(function () {
+        $("#joincustomer").click(async function () {
+          let user = {
+            name: "sayaf",
+            type: "customer",
+            topic: "xxx",
+            status: "pending",
+          };
+
+          let response = await axios.post(`${baseurl}/join`, user);
+          let data = response.data;
+          console.log(data);
+        });
+
+        $("#joinagent").click(async function () {
+          let user = { name: "shabu", type: "agent", status: "free" };
+
+          let response = await axios.post(`${baseurl}/join`, user);
+          let data = response.data;
+          console.log(data);
+        });
+
+        $("#showAgent").click(async function () {
+          let response = await axios.get(`${baseurl}/available/agent`);
+          let data = response.data;
+          console.log(data);
+        });
+
+        $("#disconnect").click(async function () {
+          socket.disconnect();
+        });
+      });
+    </script>
+    <button id="joincustomer">Join Customer</button>
+    <button id="joinagent">Join Agent</button>
+    <button id="showAgent">Show Agent</button>
+    <button id="disconnect">Disconnect</button>
+  </body>
+</html>
