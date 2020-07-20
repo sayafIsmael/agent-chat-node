@@ -47,6 +47,12 @@
           console.log(data);
         });
 
+        $("#showCustomer").click(async function () {
+          let response = await axios.get(`${baseurl}/available/customer`);
+          let data = response.data;
+          console.log(data);
+        });
+
         $("#disconnect").click(async function () {
           socket.disconnect();
         });
@@ -55,6 +61,7 @@
     <button id="joincustomer">Join Customer</button>
     <button id="joinagent">Join Agent</button>
     <button id="showAgent">Show Agent</button>
+    <button id="showCustomer">Show customer</button>
     <button id="disconnect">Disconnect</button>
   </body>
 </html>

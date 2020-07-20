@@ -58,6 +58,7 @@ function cache(req, res, next) {
     });
 }
 
+
 const redisSetData = async (key, value) => {
     return await client.set(key, JSON.stringify(value));
 };
@@ -89,6 +90,11 @@ async function getAgents(req, res, next) {
     res.send(data)
 }
 
+async function getCustomers(req, res, next) {
+    let data = await redisGetData('customer')
+    res.send(data)
+}
+
 /**Routes */
 app.get('/repos/:username', cache, getRepos);
 
@@ -97,6 +103,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/available/agent', getAgents);
+app.get('/available/customer', getCustomers);
 
 // POST method route
 app.post('/join', joinChat)
