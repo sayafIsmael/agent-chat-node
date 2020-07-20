@@ -10,9 +10,13 @@
   <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
     <script>
-      var socket = io("http://localhost:3000");
+      var socket = io("http://localhost:3000").connect();
       socket.on("hello", (data) => {});
       var baseurl = `http://localhost:5000`;
+      let socketId
+      socket.on("connect", () => {
+        socketId = socket.id; // an alphanumeric id...
+      });
 
       $(document).ready(function () {
         $("#joincustomer").click(async function () {
@@ -21,6 +25,7 @@
             type: "customer",
             topic: "xxx",
             status: "pending",
+            socketId
           };
 
           let response = await axios.post(`${baseurl}/join`, user);
@@ -29,7 +34,7 @@
         });
 
         $("#joinagent").click(async function () {
-          let user = { name: "shabu", type: "agent", status: "free" };
+          let user = { name: "vvv", type: "agent", status: "free", socketId };
 
           let response = await axios.post(`${baseurl}/join`, user);
           let data = response.data;

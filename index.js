@@ -1,7 +1,8 @@
 const express = require('express');
 const fetch = require('node-fetch');
-const redis = require('redis');
+const redis = require("async-redis");
 const bodyParser = require('body-parser');
+const { json } = require('body-parser');
 
 const PORT = process.env.PORT || 5000;
 const REDIS_PORT = process.env.PORT || 6379;
@@ -57,31 +58,35 @@ function cache(req, res, next) {
     });
 }
 
-function joinChat (req, res, next) {
-    let { type } = req.body
-    console.log("Req body: ", req.body)
+const redisSetData = async (key, value) => {
+    return await client.set(key, JSON.stringify(value));
+};
 
-    client.hmset(type, req.body, (err, reply) => {
-        if(err) {
-          console.error(err);
-        } else {
-          console.log(reply);
-        }
-    });
-    res.send('POST request to the join')
+const redisGetData = async (key) => {
+    let val = await client.get(key);
+    return JSON.parse(val);
+};
+
+const addUser = async (data) => {
+    let { type, socketId } = data
+    let users = await redisGetData(type) || []
+
+    if (users.some(user => user.socketId === socketId)) {
+        return false
+    }
+    users.push(data)
+    redisSetData(type, users)
+    return true
 }
 
-function getAgents (req, res, next){
-    client.hgetall('type agent', (err, data) => {
-        if (err) throw err;
+async function joinChat(req, res, next) {
+    addUser(req.body)
+    res.send("Done")
+}
 
-        if (data !== null) {
-            console.log("Got clients: ", data)
-            res.send(data);
-        } else {
-            next();
-        }
-    });
+async function getAgents(req, res, next) {
+    let data = await redisGetData('agent')
+    res.send(data)
 }
 
 /**Routes */
@@ -100,11 +105,21 @@ app.post('/join', joinChat)
 
 /**Socket routes */
 io.on('connection', (socket) => {
-    console.log('User connected. Id = ',socket.id);
+    console.log('User connected. Id = ', socket.id);
     // sending to the client
     socket.emit('hello', 'Welcome to socket');
 
-    socket.on('disconnect', (data) => {
+    socket.on('disconnect', async (data) => {
+        let agents = await redisGetData('agent') || []
+        let filteredAgent = agents.filter(agent => agent.socketId != socket.id)
+        console.log("Filter", filteredAgent)
+        redisSetData('agent', filteredAgent)
+
+        let customers = await redisGetData('customer') || []
+        let filteredCustomer = customers.filter(customer => customer.socketId != socket.id)
+        console.log("Filter", filteredCustomer)
+        redisSetData('customer', filteredCustomer)
+
         console.log(data);
     });
 });
@@ -117,5 +132,5 @@ app.listen(5000, () => {
 
 
 http.listen(SOCKET_PORT, () => {
-    console.log(`listening on *: `,SOCKET_PORT);
+    console.log(`listening on *: `, SOCKET_PORT);
 });
