@@ -11,7 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
     <script>
       var socket = io("http://localhost:3000").connect();
-      socket.on("hello", (data) => {});
+      socket.on("notification", (data) => {
+        console.log("Notification",data)
+      });
       var baseurl = `http://localhost:5000`;
       let socketId
       socket.on("connect", () => {
@@ -34,7 +36,7 @@
         });
 
         $("#joinagent").click(async function () {
-          let user = { name: "vvv", type: "agent", status: "free", socketId };
+          let user = { name: "Agent", type: "agent", status: "free", socketId };
 
           let response = await axios.post(`${baseurl}/join`, user);
           let data = response.data;

@@ -80,8 +80,26 @@ const addUser = async (data) => {
     return true
 }
 
+const sendRequest = async (data) => {
+    let agents = await redisGetData('agent') || []
+    agents.map((agent) => {
+        let { socketId } = agent
+        if (io.sockets.sockets[socketId] != undefined) {
+            setTimeout(() => {
+                // sending to individual socketid (private message)
+                io.to(socketId).emit('notification', data);
+            }, 5000);
+        }
+    })
+}
+
 async function joinChat(req, res, next) {
-    addUser(req.body)
+    let data = req.body
+    let { type } = data
+    if (type == "customer") {
+        sendRequest(data)
+    }
+    addUser(data)
     res.send("Done")
 }
 
@@ -139,5 +157,5 @@ app.listen(5000, () => {
 
 
 http.listen(SOCKET_PORT, () => {
-    console.log(`listening on *: `, SOCKET_PORT);
+    console.log(`Socket listening on: `, SOCKET_PORT);
 });
