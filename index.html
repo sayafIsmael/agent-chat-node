@@ -19,6 +19,9 @@
       socket.on("connect", () => {
         socketId = socket.id; // an alphanumeric id...
       });
+      socket.on("greetings", (data) => {
+        console.log("Chat started",data)
+      });
 
       $(document).ready(function () {
         $("#joincustomer").click(async function () {
@@ -60,7 +63,9 @@
         });
 
         $("#emit").click(async ()=>{
-          let response = await axios.get(`${baseurl}/notify/${$("#socketInput").val()}`);
+          let agent = { name: "Agent", type: "agent", status: "free", socketId }
+          let postData = {customerId: $("#socketInput").val(), agent}
+          let response = await axios.post(`${baseurl}/accept-request`,postData);
           let data = response.data;
           console.log(data);
         })

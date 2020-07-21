@@ -72,6 +72,7 @@ const redisGetData = async (key) => {
     return JSON.parse(val);
 };
 
+
 const addUser = async (data) => {
     let { type, socketId } = data
     let users = await redisGetData(type) || []
@@ -112,19 +113,21 @@ const notify = (socketId, data, i) => {
         if (io.sockets.sockets[socketId] != undefined) {
             io.to(socketId).emit('notification', data);
         }
-    }, 5000 * i);
+    }, 15000 * i);
 }
 
+const stopRequest = []
 
 async function joinChat(req, res, next) {
     let agents = await redisGetData('agent') || []
     let data = req.body
-    let { type } = data
+    let { type, socketId } = data
+    let customerId = socketId
     if (type == "customer") {
         for (let i = 0; i < agents.length; i++) {
-            // if (i == 2) {
-            //     break
-            // }
+            if (stopRequest.includes(customerId)) {
+                break
+            }
             let { socketId } = agents[i]
             notify(socketId, data, i)
         }
@@ -144,25 +147,17 @@ async function getCustomers(req, res, next) {
     res.send(data)
 }
 
-function notifyAgent(req, res, next) {
-    let { socketId } = req.params
-    // io.to(socketId).emit('notification', "hello there");
-    // res.send("done")
-    for (let i = 0; i < 10; i++) {
-        task(socketId, i);
-    }
-}
-function task(socketId, i) {
-    setTimeout(function () {
-        // Add tasks to do 
-        io.to(socketId).emit('notification', "hello");
-        console.log("hey")
-    }, 2000 * i);
+function acceptRequest(req, res, next) {
+    let data = req.body
+    let { customerId, agent } = data
+    io.to(customerId).emit('greetings', agent);
+    stopRequest.push(customerId);
+    res.send(`accepted ${customerId}`)
 }
 
 /**Routes */
 app.get('/repos/:username', cache, getRepos);
-app.get('/notify/:socketId', notifyAgent);
+app.post('/accept-request', acceptRequest);
 
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
