@@ -58,6 +58,12 @@
         $("#disconnect").click(async function () {
           socket.disconnect();
         });
+
+        $("#emit").click(async ()=>{
+          let response = await axios.get(`${baseurl}/notify/${$("#socketInput").val()}`);
+          let data = response.data;
+          console.log(data);
+        })
       });
     </script>
     <button id="joincustomer">Join Customer</button>
@@ -65,5 +71,7 @@
     <button id="showAgent">Show Agent</button>
     <button id="showCustomer">Show customer</button>
     <button id="disconnect">Disconnect</button>
+    <button id="emit">emit</button>
+    <input id="socketInput"/>
   </body>
 </html>

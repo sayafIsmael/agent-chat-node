@@ -3,6 +3,7 @@ const fetch = require('node-fetch');
 const redis = require("async-redis");
 const bodyParser = require('body-parser');
 const { json } = require('body-parser');
+const cors = require('cors')
 
 const PORT = process.env.PORT || 5000;
 const REDIS_PORT = process.env.PORT || 6379;
@@ -10,10 +11,13 @@ const REDIS_PORT = process.env.PORT || 6379;
 const client = redis.createClient(REDIS_PORT);
 
 const app = express();
-app.use(bodyParser.json())
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const SOCKET_PORT = 3000
+
+app.use(bodyParser.json())
+app.use(cors())
+
 
 // Set response
 function setResponse(username, repos) {
@@ -80,24 +84,50 @@ const addUser = async (data) => {
     return true
 }
 
-const sendRequest = async (data) => {
+async function clearOffline() {
     let agents = await redisGetData('agent') || []
-    agents.map((agent) => {
-        let { socketId } = agent
+    let filteredAgent = []
+    agents.map(({ socketId }, i) => {
+        console.log("remove agent: ", i)
         if (io.sockets.sockets[socketId] != undefined) {
-            setTimeout(() => {
-                // sending to individual socketid (private message)
-                io.to(socketId).emit('notification', data);
-            }, 5000);
+            filteredAgent.push(agents[i]);
         }
     })
+    redisSetData('agent', filteredAgent)
+
+    let customers = await redisGetData('customer') || []
+    let filteredCustomer = []
+    customers.map(({ socketId }, i) => {
+        console.log("remove customer: ", i)
+        if (io.sockets.sockets[socketId] != undefined) {
+            filteredCustomer.push(customers[i]);
+        }
+    })
+    redisSetData('customer', filteredCustomer)
+
 }
 
+const notify = (socketId, data, i) => {
+    setTimeout(() => {
+        if (io.sockets.sockets[socketId] != undefined) {
+            io.to(socketId).emit('notification', data);
+        }
+    }, 5000 * i);
+}
+
+
 async function joinChat(req, res, next) {
+    let agents = await redisGetData('agent') || []
     let data = req.body
     let { type } = data
     if (type == "customer") {
-        sendRequest(data)
+        for (let i = 0; i < agents.length; i++) {
+            // if (i == 2) {
+            //     break
+            // }
+            let { socketId } = agents[i]
+            notify(socketId, data, i)
+        }
     }
     addUser(data)
     res.send("Done")
@@ -105,6 +135,7 @@ async function joinChat(req, res, next) {
 
 async function getAgents(req, res, next) {
     let data = await redisGetData('agent')
+    console.log("get agent data: ", data)
     res.send(data)
 }
 
@@ -113,8 +144,25 @@ async function getCustomers(req, res, next) {
     res.send(data)
 }
 
+function notifyAgent(req, res, next) {
+    let { socketId } = req.params
+    // io.to(socketId).emit('notification', "hello there");
+    // res.send("done")
+    for (let i = 0; i < 10; i++) {
+        task(socketId, i);
+    }
+}
+function task(socketId, i) {
+    setTimeout(function () {
+        // Add tasks to do 
+        io.to(socketId).emit('notification', "hello");
+        console.log("hey")
+    }, 2000 * i);
+}
+
 /**Routes */
 app.get('/repos/:username', cache, getRepos);
+app.get('/notify/:socketId', notifyAgent);
 
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
@@ -137,18 +185,19 @@ io.on('connection', (socket) => {
     socket.on('disconnect', async (data) => {
         let agents = await redisGetData('agent') || []
         let filteredAgent = agents.filter(agent => agent.socketId != socket.id)
-        console.log("Filter", filteredAgent)
+        // console.log("Filter", filteredAgent)
         redisSetData('agent', filteredAgent)
 
         let customers = await redisGetData('customer') || []
         let filteredCustomer = customers.filter(customer => customer.socketId != socket.id)
-        console.log("Filter", filteredCustomer)
+        // console.log("Filter", filteredCustomer)
         redisSetData('customer', filteredCustomer)
 
         console.log(data);
     });
 });
 
+clearOffline()
 
 /**Start Server */
 app.listen(5000, () => {
