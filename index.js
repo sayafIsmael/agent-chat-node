@@ -116,7 +116,7 @@ const notify = (socketId, data) => {
 async function joinChat(req, res, next) {
     let data = req.body
     addUser(data)
-    res.send("Done")
+    res.send({ success: true })
 }
 
 async function getAgents(req, res, next) {
