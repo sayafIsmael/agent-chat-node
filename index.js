@@ -108,30 +108,16 @@ async function clearOffline() {
 
 }
 
-const notify = (socketId, data, i) => {
-    setTimeout(() => {
-        if (io.sockets.sockets[socketId] != undefined) {
-            io.to(socketId).emit('notification', data);
-        }
-    }, 15000 * i);
+const notify = (socketId, data) => {
+    if (io.sockets.sockets[socketId] != undefined) {
+        io.to(socketId).emit('notification', data);
+    }
 }
-
-const stopRequest = []
 
 async function joinChat(req, res, next) {
     let agents = await redisGetData('agent') || []
     let data = req.body
     let { type, socketId } = data
-    let customerId = socketId
-    if (type == "customer") {
-        for (let i = 0; i < agents.length; i++) {
-            if (stopRequest.includes(customerId)) {
-                break
-            }
-            let { socketId } = agents[i]
-            notify(socketId, data, i)
-        }
-    }
     addUser(data)
     res.send("Done")
 }
@@ -151,13 +137,54 @@ function acceptRequest(req, res, next) {
     let data = req.body
     let { customerId, agent } = data
     io.to(customerId).emit('greetings', agent);
-    stopRequest.push(customerId);
     res.send(`accepted ${customerId}`)
+}
+
+async function extractSockets(arr = []) {
+    let data = []
+    arr.map((user) => {
+        data.push(user.socketId)
+    })
+    return data
+}
+
+
+
+async function sendRequest(req, res, next) {
+    try {
+        let { socketId, name } = req.body
+        let allAgents = await redisGetData('agent') || []
+        let agentIds = await extractSockets(allAgents)
+        console.log("avilable agents", agentIds)
+        let sentRequests = await client.lrange(socketId + 'reqs', 0, -1) || []
+        console.log("Sent req cache: ", agentIds)
+        if (!agentIds.length) {
+            io.to(socketId).emit('chatRequestError', 'No agent is avilable to chat right now.');
+            res.send('No agent is avilable to chat right now.')
+            return
+        }
+        for (i = 0; i < agentIds.length; i++) {
+            if (!(sentRequests.includes(agentIds[i]))) {
+                console.log(`${name} wants to chat with you`)
+                notify(agentIds[i], `${name} wants to chat with you`)
+                await client.lpush(socketId + 'reqs', agentIds[i])
+                res.send(`Sent request to ${agentIds[i]}`)
+                break
+            } else {
+                io.to(socketId).emit('chatRequestError', 'No agent is avilable to chat right now.');
+                res.send('No agent is avilable to chat right now.')
+            }
+
+        }
+    } catch (error) {
+        console.log(error)
+    }
 }
 
 /**Routes */
 app.get('/repos/:username', cache, getRepos);
 app.post('/accept-request', acceptRequest);
+app.post('/send-request-next', sendRequest);
 
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
@@ -187,6 +214,8 @@ io.on('connection', (socket) => {
         let filteredCustomer = customers.filter(customer => customer.socketId != socket.id)
         // console.log("Filter", filteredCustomer)
         redisSetData('customer', filteredCustomer)
+        console.log(await client.lrange(socket.id + 'reqs', 0, -1))
+        client.del(socket.id + 'reqs')
 
         console.log(data);
     });
