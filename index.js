@@ -2,7 +2,6 @@ const express = require('express');
 const fetch = require('node-fetch');
 const redis = require("async-redis");
 const bodyParser = require('body-parser');
-const { json } = require('body-parser');
 const cors = require('cors')
 
 const PORT = process.env.PORT || 5000;
