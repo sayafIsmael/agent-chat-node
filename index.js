@@ -115,9 +115,7 @@ const notify = (socketId, data) => {
 }
 
 async function joinChat(req, res, next) {
-    let agents = await redisGetData('agent') || []
     let data = req.body
-    let { type, socketId } = data
     addUser(data)
     res.send("Done")
 }
