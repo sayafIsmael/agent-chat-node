@@ -10,7 +10,7 @@
   <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
     <script>
-      var socket = io("http://localhost:3000").connect();
+      var socket = io("http://localhost:4000").connect();
       socket.on("notification", (data) => {
         console.log("Notification", data);
       });

@@ -12,7 +12,7 @@ const client = redis.createClient(REDIS_PORT);
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
-const SOCKET_PORT = 3000
+const SOCKET_PORT = 4000
 
 app.use(bodyParser.json())
 app.use(cors())
@@ -115,8 +115,13 @@ const notify = (socketId, data) => {
 
 async function joinChat(req, res, next) {
     let data = req.body
-    addUser(data)
-    res.send({ success: true })
+    let add = addUser(data)
+    if (add) {
+        res.send({ success: true })
+        return
+    }
+    res.send({ error: "Something wrong! User might exist." })
+
 }
 
 async function getAgents(req, res, next) {
@@ -165,14 +170,14 @@ async function sendRequest(req, res, next) {
                 console.log(`${name} wants to chat with you`)
                 notify(agentIds[i], `${name} wants to chat with you`)
                 await client.lpush(socketId + 'reqs', agentIds[i])
-                res.send(`Sent request to ${agentIds[i]}`)
+                // res.send(`Sent request to ${agentIds[i]}`)
                 break
             } else {
                 io.to(socketId).emit('chatRequestError', 'No agent is avilable to chat right now.');
                 res.send('No agent is avilable to chat right now.')
             }
-
         }
+        res.send('Sending request to chat..')
     } catch (error) {
         console.log(error)
     }
