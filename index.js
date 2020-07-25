@@ -109,18 +109,23 @@ async function clearOffline() {
 
 const notify = (socketId, data) => {
     if (io.sockets.sockets[socketId] != undefined) {
-        io.to(socketId).emit('notification', data);
+        io.to(socketId).emit('chatReq', data);
     }
 }
 
 async function joinChat(req, res, next) {
     let data = req.body
-    let add = addUser(data)
-    if (add) {
-        res.send({ success: true })
+    let { socketId } = data
+    if (socketId) {
+        let add = addUser(data)
+        if (add) {
+            res.send({ success: true })
+            return
+        }
+        res.send({ error: "Something wrong! User might exist." })
         return
     }
-    res.send({ error: "Something wrong! User might exist." })
+    res.send({ error: "Something wrong!" })
 
 }
 
@@ -154,6 +159,7 @@ async function extractSockets(arr = []) {
 
 async function sendRequest(req, res, next) {
     try {
+        let sendRequestTo
         let { socketId, name } = req.body
         let allAgents = await redisGetData('agent') || []
         let agentIds = await extractSockets(allAgents)
@@ -167,26 +173,40 @@ async function sendRequest(req, res, next) {
         }
         for (i = 0; i < agentIds.length; i++) {
             if (!(sentRequests.includes(agentIds[i]))) {
-                console.log(`${name} wants to chat with you`)
-                notify(agentIds[i], `${name} wants to chat with you`)
+
+                notify(agentIds[i], req.body)
+
                 await client.lpush(socketId + 'reqs', agentIds[i])
-                // res.send(`Sent request to ${agentIds[i]}`)
+                await client.lpush(agentIds[i] + 'reqs', socketId)
+                sendRequestTo = agentIds[i]
+                // res.send(`Sent request to ${agentIds[i]}`) 
                 break
-            } else {
-                io.to(socketId).emit('chatRequestError', 'No agent is avilable to chat right now.');
-                res.send('No agent is avilable to chat right now.')
             }
         }
-        res.send('Sending request to chat..')
+      
+        res.send({
+            success: true,
+            message: "Request sent ",
+            socketId: sendRequestTo
+        })
     } catch (error) {
         console.log(error)
     }
 }
 
+function cancelRequest(req, res, next){
+    let { customerId, agentId } = req.body
+    io.to(agentId).emit('cancelReq', customerId);
+    res.send('sent cancel req')
+}
+
+
+
 /**Routes */
 app.get('/repos/:username', cache, getRepos);
 app.post('/accept-request', acceptRequest);
 app.post('/send-request-next', sendRequest);
+app.post('/cancel-request-prev', cancelRequest);
 
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
