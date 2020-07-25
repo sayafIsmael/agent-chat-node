@@ -3,6 +3,7 @@ const fetch = require('node-fetch');
 const redis = require("async-redis");
 const bodyParser = require('body-parser');
 const cors = require('cors')
+const uid = require('uid');
 
 const PORT = process.env.PORT || 5000;
 const REDIS_PORT = process.env.PORT || 6379;
@@ -140,10 +141,20 @@ async function getCustomers(req, res, next) {
     res.send(data)
 }
 
-function acceptRequest(req, res, next) {
+async function acceptRequest(req, res, next) {
     let data = req.body
     let { customerId, agent } = data
     io.to(customerId).emit('greetings', agent);
+    // let agents = await redisGetData('agent') || []
+    // let filteredAgent = agents.filter(agent => agent.socketId != socket.id)
+    // redisSetData('agent', [...filteredAgent, agent])
+
+    let message = { from: agent.socketId, to: customerId, text: "How can I help you?", time: new Date() }
+    console.log("message", message)
+
+    io.to(message.from).emit('message', message);
+    io.to(message.to).emit('message', message);
+
     res.send(`accepted ${customerId}`)
 }
 
@@ -160,7 +171,7 @@ async function extractSockets(arr = []) {
 async function sendRequest(req, res, next) {
     try {
         let sendRequestTo
-        let { socketId, name } = req.body
+        let { socketId, name, avatar } = req.body
         let allAgents = await redisGetData('agent') || []
         let agentIds = await extractSockets(allAgents)
         console.log("avilable agents", agentIds)
@@ -183,7 +194,7 @@ async function sendRequest(req, res, next) {
                 break
             }
         }
-      
+
         res.send({
             success: true,
             message: "Request sent ",
@@ -194,19 +205,32 @@ async function sendRequest(req, res, next) {
     }
 }
 
-function cancelRequest(req, res, next){
+function cancelRequest(req, res, next) {
     let { customerId, agentId } = req.body
     io.to(agentId).emit('cancelReq', customerId);
     res.send('sent cancel req')
 }
 
+function sendmessage(req, res, next) {
+    let { from, to, text, time } = req.body
+    io.to(from).emit('message', req.body);
+    io.to(to).emit('message', req.body);
+    res.send({
+        success: true,
+        message: "Message sent successfully"
+    })
+}
 
+function sendtyping(req, res, next) {
+    let { typing, toId } = req.body
+    io.to(toId).emit('typing', typing);
+    res.send({
+        success: true
+    })
+}
 
 /**Routes */
 app.get('/repos/:username', cache, getRepos);
-app.post('/accept-request', acceptRequest);
-app.post('/send-request-next', sendRequest);
-app.post('/cancel-request-prev', cancelRequest);
 
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
@@ -217,7 +241,11 @@ app.get('/available/customer', getCustomers);
 
 // POST method route
 app.post('/join', joinChat)
-
+app.post('/accept-request', acceptRequest);
+app.post('/send-request-next', sendRequest);
+app.post('/cancel-request-prev', cancelRequest);
+app.post('/sendmessage', sendmessage);
+app.post('/typing', sendtyping);
 
 
 /**Socket routes */
